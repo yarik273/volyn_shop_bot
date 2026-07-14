@@ -9,8 +9,8 @@ BOT_TOKEN = os.getenv("MY_NEW_SECRET_TOKEN")  # Наша безпечна змі
 TARGET_THREAD_ID = 693  # Ваш ID гілки
 
 # Реквізити для гравців (ВКАЖІТЬ ВАШІ РЕАЛЬНІ ДАНІ)
-CARD_NUMBER = "4149 4999 1111 2222"  
-CARD_HOLDER = "Ярослав В."           
+CARD_NUMBER = "4149439024408951"
+CARD_HOLDER = "Ярослав Володимирович."           
 # =====================================================
 
 bot = telebot.TeleBot(BOT_TOKEN)
