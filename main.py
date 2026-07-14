@@ -36,7 +36,7 @@ def cmd_start(message):
     keyboard.add(types.InlineKeyboardButton(text="🛒 Купити привілегію", callback_data="open_shop"))
     
     welcome_text = (
-        "👋 **Вітаємо в магазині нашого сервера CS 1.6!**\n\n"
+        "👋 **Вітаємо в магазині сервера CS 1.6!**\n\n"
         "Натисніть на кнопку нижче, щоб переглянути доступні привілегії 👇"
     )
     bot.send_message(
