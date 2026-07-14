@@ -9,11 +9,28 @@ BOT_TOKEN = os.getenv("MY_NEW_SECRET_TOKEN")  # Наша безпечна змі
 TARGET_THREAD_ID = 693  # Ваш ID гілки
 
 # Реквізити для гравців (ВКАЖІТЬ ВАШІ РЕАЛЬНІ ДАНІ)
-CARD_NUMBER = "4149439024408951"
-CARD_HOLDER = "Ярослав Володимирович."           
+CARD_NUMBER = "4149 4999 1111 2222"  
+CARD_HOLDER = "Ярослав В."           
 # =====================================================
 
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# База даних цін та назв для зручного розрахунку
+PRICES = {
+    "vip": {"30": "200 грн", "60": "380 грн", "90": "530 грн"},  # Виправлено можливу опечатку 350->530, або замініть на свою
+    "admin": {"30": "400 грн", "60": "780 грн", "90": "1100 грн"},
+    "sponsor": {"30": "800 грн", "60": "1550 грн", "90": "2200 грн"},
+    "model": "100 грн",
+    "bonuses": "100 грн"
+}
+
+NAMES = {
+    "vip": "💎 VIP-статус",
+    "admin": "🛡️ Права Адміна",
+    "sponsor": "👑 Спонсор сервера",
+    "model": "👕 Унікальна модель гравця (30 днів)",
+    "bonuses": "💰 Пакет 5000 бонусів"
+}
 
 # 1. Реагуємо на команду /start
 @bot.message_handler(commands=['start'])
@@ -23,11 +40,11 @@ def cmd_start(message):
         return
 
     keyboard = types.InlineKeyboardMarkup()
-    keyboard.add(types.InlineKeyboardButton(text="🛒 Купити привілегію", callback_data="open_shop"))
+    keyboard.add(types.InlineKeyboardButton(text="🛒 Відкрити Магазин", callback_data="open_shop"))
     
     welcome_text = (
         "👋 **Вітаємо в магазині нашого сервера CS 1.6!**\n\n"
-        "Натисніть на кнопку нижче, щоб переглянути доступні привілегії 👇"
+        "Натисніть на кнопку нижче, щоб переглянути доступні товари та привілегії 👇"
     )
     bot.send_message(
         chat_id=message.chat.id, 
@@ -37,54 +54,56 @@ def cmd_start(message):
         message_thread_id=current_thread_id
     )
 
-# 2. Обробка кнопки "Купити привілегію"
+# 2. Головне меню магазину
 @bot.callback_query_handler(func=lambda call: call.data == "open_shop")
 def open_shop(call):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(
-        types.InlineKeyboardButton(text="💎 VIP (200 грн / 30 днів)", callback_data="buy_vip"),
-        types.InlineKeyboardButton(text="🛡️ Admin (400 грн / 30 днів)", callback_data="buy_admin"),
-        types.InlineKeyboardButton(text="👑 Спонсор (800 грн / 30 днів)", callback_data="buy_sponsor"),
-        types.InlineKeyboardButton(text="👕 Модель гравця (100 грн / 30 днів)", callback_data="buy_model"),
-        types.InlineKeyboardButton(text="💰 5000 бонусів (100 грн)", callback_data="buy_bonuses")
+        types.InlineKeyboardButton(text="💎 VIP-статус", callback_data="select_vip"),
+        types.InlineKeyboardButton(text="🛡️ Права Адміна", callback_data="select_admin"),
+        types.InlineKeyboardButton(text="👑 Спонсор сервера", callback_data="select_sponsor"),
+        types.InlineKeyboardButton(text="👕 Модель гравця (100 грн)", callback_data="buy_model_30"),
+        types.InlineKeyboardButton(text="💰 5000 бонусів (100 грн)", callback_data="buy_bonuses_0")
     )
-    shop_text = "📋 **Оберіть привілегію або товар, який бажаєте придбати:**"
+    shop_text = "📋 **Оберіть категорію, яка вас цікавить:**"
     
-    bot.edit_message_text(
-        text=shop_text, 
-        chat_id=call.message.chat.id, 
-        message_id=call.message.message_id, 
-        reply_markup=keyboard, 
-        parse_mode="Markdown"
-    )
+    bot.edit_message_text(text=shop_text, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard, parse_mode="Markdown")
     bot.answer_callback_query(call.id)
 
-# 3. Вивід картки та інструкції замовлення
+# 3. Меню вибору днів для привілегій
+@bot.callback_query_handler(func=lambda call: call.data.startswith("select_"))
+def select_days(call):
+    priv = call.data.split("_")[1]
+    
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    keyboard.add(
+        types.InlineKeyboardButton(text=f"⏱️ 30 днів ({PRICES[priv]['30']})", callback_data=f"buy_{priv}_30"),
+        types.InlineKeyboardButton(text=f"⏱️ 60 днів ({PRICES[priv]['60']})", callback_data=f"buy_{priv}_60"),
+        types.InlineKeyboardButton(text=f"⏱️ 90 днів ({PRICES[priv]['90']})", callback_data=f"buy_{priv}_90"),
+        types.InlineKeyboardButton(text="⬅️ Назад до магазину", callback_data="open_shop")
+    )
+    
+    text = f"⏳ **Оберіть термін дії для {NAMES[priv]}:**"
+    bot.edit_message_text(text=text, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard, parse_mode="Markdown")
+    bot.answer_callback_query(call.id)
+
+# 4. Фінальний вивід реквізитів
 @bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
-def process_buy_button(call):
-    # Отримуємо точний тип послуги після знаку підкреслення
-    priv_type = call.data.split("_")[1]
+def process_buy(call):
+    # Отримуємо дані з callback типу: buy_vip_30 або buy_model_30
+    _, priv_type, days = call.data.split("_")
     
-    # Списки цін та назв, куди ми додали нові товари
-    prices = {
-        "vip": "200 грн", 
-        "admin": "400 грн", 
-        "sponsor": "800 грн",
-        "model": "100 грн",
-        "bonuses": "100 грн"
-    }
-    
-    names = {
-        "vip": "💎 VIP-статус (30 днів)", 
-        "admin": "🛡️ Права Адміна (30 днів)", 
-        "sponsor": "👑 Спонсор сервера (30 днів)",
-        "model": "👕 Унікальна модель гравця (30 днів)",
-        "bonuses": "💰 Пакет 5000 бонусів"
-    }
-    
+    # Визначаємо ціну та опис залежно від типу товару
+    if priv_type in ["vip", "admin", "sponsor"]:
+        price = PRICES[priv_type][days]
+        item_name = f"{NAMES[priv_type]} на {days} днів"
+    else:
+        price = PRICES[priv_type]
+        item_name = NAMES[priv_type]
+        
     response_text = (
-        f"📋 **Ви обрали:** {names[priv_type]}\n"
-        f"💰 **Сума до сплати:** {prices[priv_type]}\n\n"
+        f"📋 **Ви обрали:** {item_name}\n"
+        f"💰 **Сума до сплати:** {price}\n\n"
         f"💳 **Реквізити для оплати:**\n"
         f"`{CARD_NUMBER}`\n"
         f"👤 **Отримувач:** {CARD_HOLDER}\n\n"
@@ -95,10 +114,15 @@ def process_buy_button(call):
         f"3. Ваш SteamID 🆔 (наприклад, `STEAM_0:0:12345678`)"
     )
     
+    # Додаємо кнопку повернення назад на випадок, якщо гравець передумав
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.add(types.InlineKeyboardButton(text="⬅️ Назад до магазину", callback_data="open_shop"))
+    
     bot.edit_message_text(
         text=response_text,
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
+        reply_markup=keyboard,
         parse_mode="Markdown"
     )
     bot.answer_callback_query(call.id)
@@ -124,4 +148,3 @@ if __name__ == "__main__":
     
     bot.remove_webhook()
     bot.polling(none_stop=True, interval=2, timeout=15)
-    
