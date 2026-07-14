@@ -1,31 +1,21 @@
 import telebot
 import os
 import threading
-import time
 from telebot import types
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ================= НАЛАШТУВАННЯ БОТА =================
-BOT_TOKEN = os.getenv("MY_NEW_SECRET_TOKEN")  # Наша нова безпечна змінна
+BOT_TOKEN = os.getenv("MY_NEW_SECRET_TOKEN")  # Наша безпечна змінна
 TARGET_THREAD_ID = 693  # Ваш ID гілки
 
-# Реквізити для гравців
-CARD_NUMBER = "4149 4999 1122"  # Вкажіть вашу реальну карту
-CARD_HOLDER = "Ярослав В."           # Ваше ім'я
+# Реквізити для гравців (ВКАЖІТЬ ВАШІ РЕАЛЬНІ ДАНІ)
+CARD_NUMBER = "4149 4999 1111 2222"  
+CARD_HOLDER = "Ярослав В."           
 # =====================================================
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Функція автовидалення повідомлень
-def auto_delete_message(chat_id, message_id, delay_seconds=30):  # ⏱️ ТИМЧАСОВО 30 СЕКУНД ДЛЯ ТЕСТУ!
-    time.sleep(delay_seconds)
-    try:
-        bot.delete_message(chat_id, message_id)
-        print(f"DEBUG: Повідомлення {message_id} успішно видалено за таймером.")
-    except Exception as e:
-        print(f"DEBUG: Не вдалося видалити повідомлення: {e}")
-
-# 1. Реагуємо на команду /start (Кнопка залишається в гілці назавжди)
+# 1. Реагуємо на команду /start
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     current_thread_id = message.message_thread_id
@@ -54,36 +44,46 @@ def open_shop(call):
     keyboard.add(
         types.InlineKeyboardButton(text="💎 VIP (200 грн / 30 днів)", callback_data="buy_vip"),
         types.InlineKeyboardButton(text="🛡️ Admin (400 грн / 30 днів)", callback_data="buy_admin"),
-        types.InlineKeyboardButton(text="👑 Спонсор (800 грн / 30 днів)", callback_data="buy_sponsor")
+        types.InlineKeyboardButton(text="👑 Спонсор (800 грн / 30 днів)", callback_data="buy_sponsor"),
+        types.InlineKeyboardButton(text="👕 Модель гравця (100 грн / 30 днів)", callback_data="buy_model"),
+        types.InlineKeyboardButton(text="💰 5000 бонусів (100 грн)", callback_data="buy_bonuses")
     )
-    shop_text = "📋 **Оберіть привілегію, яку бажаєте придбати:**"
+    shop_text = "📋 **Оберіть привілегію або товар, який бажаєте придбати:**"
     
-    if call.message.chat.type in ['group', 'supergroup']:
-        sent_msg = bot.send_message(
-            chat_id=call.message.chat.id,
-            text=shop_text,
-            reply_markup=keyboard,
-            parse_mode="Markdown",
-            message_thread_id=call.message.message_thread_id
-        )
-        # Запускаємо таймер видалення меню вибору
-        threading.Thread(target=auto_delete_message, args=(call.message.chat.id, sent_msg.message_id, 30), daemon=True).start()
-    else:
-        bot.edit_message_text(shop_text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, parse_mode="Markdown")
-        
+    bot.edit_message_text(
+        text=shop_text, 
+        chat_id=call.message.chat.id, 
+        message_id=call.message.message_id, 
+        reply_markup=keyboard, 
+        parse_mode="Markdown"
+    )
     bot.answer_callback_query(call.id)
 
-# 3. Вивід картки та інструкції (ТУТ ВСЕ ВИПРАВЛЕНО)
+# 3. Вивід картки та інструкції замовлення
 @bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
 def process_buy_button(call):
-    # ✅ ВИПРАВЛЕНО: додано індекс [1], тепер воно чітко розпізнає vip, admin чи sponsor
+    # Отримуємо точний тип послуги після знаку підкреслення
     priv_type = call.data.split("_")[1]
-    prices = {"vip": "200 грн", "admin": "400 грн", "sponsor": "800 грн"}
-    names = {"vip": "💎 VIP-статус", "admin": "🛡️ Права Адміна", "sponsor": "👑 Спонсор сервера"}
+    
+    # Списки цін та назв, куди ми додали нові товари
+    prices = {
+        "vip": "200 грн", 
+        "admin": "400 грн", 
+        "sponsor": "800 грн",
+        "model": "100 грн",
+        "bonuses": "100 грн"
+    }
+    
+    names = {
+        "vip": "💎 VIP-статус (30 днів)", 
+        "admin": "🛡️ Права Адміна (30 днів)", 
+        "sponsor": "👑 Спонсор сервера (30 днів)",
+        "model": "👕 Унікальна модель гравця (30 днів)",
+        "bonuses": "💰 Пакет 5000 бонусів"
+    }
     
     response_text = (
         f"📋 **Ви обрали:** {names[priv_type]}\n"
-        f"⏳ **Термін дії:** 30 днів\n"
         f"💰 **Сума до сплати:** {prices[priv_type]}\n\n"
         f"💳 **Реквізити для оплати:**\n"
         f"`{CARD_NUMBER}`\n"
@@ -92,27 +92,15 @@ def process_buy_button(call):
         f"Оплатіть точну суму на картку. Після цього надішліть сюди інформацію у такому форматі:\n\n"
         f"1. Скріншот чека про оплату 📸\n"
         f"2. Ваш Нік 🎮\n"
-        f"3. Ваш SteamID 🆔"
+        f"3. Ваш SteamID 🆔 (наприклад, `STEAM_0:0:12345678`)"
     )
     
-    # Надсилаємо реквізити в чат групи або в приват
-    sent_info = bot.send_message(
-        chat_id=call.message.chat.id, 
-        text=response_text, 
-        parse_mode="Markdown",
-        message_thread_id=call.message.message_thread_id if call.message.chat.type in ['group', 'supergroup'] else None
+    bot.edit_message_text(
+        text=response_text,
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        parse_mode="Markdown"
     )
-    
-    if call.message.chat.type in ['group', 'supergroup']:
-        # Видаляємо проміжне меню вибору товару, щоб воно не висіло
-        try:
-            bot.delete_message(call.message.chat.id, call.message.message_id)
-        except Exception:
-            pass
-            
-        # Запускаємо таймер видалення для самого повідомлення з реквізитами картки
-        threading.Thread(target=auto_delete_message, args=(call.message.chat.id, sent_info.message_id, 30), daemon=True).start()
-        
     bot.answer_callback_query(call.id)
 
 # === ВЕБ-СЕРВЕР ДЛЯ RENDER ===
