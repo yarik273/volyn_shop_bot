@@ -1,14 +1,14 @@
-import os
 import telebot
+import os
 import threading
 from telebot import types
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# ================= НАЛАНШТУВАННЯ БОТА =================
+# ================= НАЛАШТУВАННЯ БОТА =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# 👇 СЮДИ ВПИШІТЬ ЦИФРОВИЙ ID ВАШОЇ ГІЛКИ (НАПРИКЛАД: 456) 👇
-TARGET_THREAD_ID = 456  
+# 👇 ВАШ РЕАЛЬНИЙ ID ГІЛКИ З ПОСИЛАННЯ 👇
+TARGET_THREAD_ID = 693  
 
 # Реквізити для гравців
 CARD_NUMBER = "4149 4999 1111 2222"  # Вкажіть вашу карту
@@ -21,7 +21,10 @@ bot = telebot.TeleBot(BOT_TOKEN)
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     current_thread_id = message.message_thread_id
-    if current_thread_id != TARGET_THREAD_ID:
+    
+    # Якщо пишуть у групі, але НЕ в тій гілці — ігноруємо.
+    # В особистих повідомленнях chat.type буде 'private', тому ця умова пропуститься!
+    if message.chat.type in ['group', 'supergroup'] and current_thread_id != TARGET_THREAD_ID:
         return
 
     keyboard = types.InlineKeyboardMarkup()
@@ -31,12 +34,13 @@ def cmd_start(message):
         "👋 **Вітаємо в магазині нашого сервера CS 1.6!**\n\n"
         "Натисніть на кнопку нижче, щоб переглянути доступні привілегії 👇"
     )
+    
     bot.send_message(
         chat_id=message.chat.id, 
         text=welcome_text, 
         reply_markup=keyboard, 
         parse_mode="Markdown",
-        message_thread_id=TARGET_THREAD_ID
+        message_thread_id=current_thread_id  # Автоматично підлаштується (в приватних буде None)
     )
 
 # 2. Обробка кнопки "Купити привілегію"
@@ -55,6 +59,7 @@ def open_shop(call):
 # 3. Вивід картки та інструкції
 @bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
 def process_buy_button(call):
+    # Виправлено: додано індекс, щоб правильно отримувати тип послуги (vip, admin, sponsor)
     priv_type = call.data.split("_")[1]
     prices = {"vip": "200 грн", "admin": "400 грн", "sponsor": "800 грн"}
     names = {"vip": "💎 VIP-статус", "admin": "🛡️ Права Адміна", "sponsor": "👑 Спонсор сервера"}
@@ -93,6 +98,7 @@ def run_health_server():
 if __name__ == "__main__":
     threading.Thread(target=run_health_server, daemon=True).start()
     print("Магазин привілегій успішно запущено!")
-    bot.infinity_polling(skip_pending=True)
     
+    bot.remove_webhook() 
+    bot.infinity_polling(skip_pending=True)
     
