@@ -4,20 +4,26 @@ import threading
 from telebot import types
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# ================= НАЛАШТУВАННЯ БОТА =================
-# Бот автоматично візьме токен із налаштувань Render (змінна BOT_TOKEN)
+# ================= НАЛАНШТУВАННЯ БОТА =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Сюди впишіть ваші реальні реквізити картки
-CARD_NUMBER = "4149 4999 1111 2222"  # Номер вашої картки
-CARD_HOLDER = "Ярослав В."           # Ваше ім'я для перевірки
+# 👇 СЮДИ ВПИШІТЬ ЦИФРОВИЙ ID ВАШОЇ ГІЛКИ (НАПРИКЛАД: 456) 👇
+TARGET_THREAD_ID = 456  
+
+# Реквізити для гравців
+CARD_NUMBER = "4149 4999 1111 2222"  # Вкажіть вашу карту
+CARD_HOLDER = "Ярослав В."           # Ваше ім'я
 # =====================================================
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# 1. Реагуємо на команду /start (Показуємо ЛИШЕ ОДНУ кнопку)
+# 1. Реагуємо на команду /start
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
+    current_thread_id = message.message_thread_id
+    if current_thread_id != TARGET_THREAD_ID:
+        return
+
     keyboard = types.InlineKeyboardMarkup()
     keyboard.add(types.InlineKeyboardButton(text="🛒 Купити привілегію", callback_data="open_shop"))
     
@@ -25,9 +31,15 @@ def cmd_start(message):
         "👋 **Вітаємо в магазині нашого сервера CS 1.6!**\n\n"
         "Натисніть на кнопку нижче, щоб переглянути доступні привілегії 👇"
     )
-    bot.send_message(message.chat.id, welcome_text, reply_markup=keyboard, parse_mode="Markdown")
+    bot.send_message(
+        chat_id=message.chat.id, 
+        text=welcome_text, 
+        reply_markup=keyboard, 
+        parse_mode="Markdown",
+        message_thread_id=TARGET_THREAD_ID
+    )
 
-# 2. Обробка кнопки "Купити привілегію" -> відкриваємо список товарів
+# 2. Обробка кнопки "Купити привілегію"
 @bot.callback_query_handler(func=lambda call: call.data == "open_shop")
 def open_shop(call):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
@@ -40,14 +52,14 @@ def open_shop(call):
     bot.edit_message_text(shop_text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, parse_mode="Markdown")
     bot.answer_callback_query(call.id)
 
-# 3. Вивід картки та інструкції після вибору послуги
+# 3. Вивід картки та інструкції
 @bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
 def process_buy_button(call):
-    priv_type = call.data.split("_")
+    priv_type = call.data.split("_")[1]
     prices = {"vip": "200 грн", "admin": "400 грн", "sponsor": "800 грн"}
     names = {"vip": "💎 VIP-статус", "admin": "🛡️ Права Адміна", "sponsor": "👑 Спонсор сервера"}
     
-        response_text = (
+    response_text = (
         f"📋 **Ви обрали:** {names[priv_type]}\n"
         f"⏳ **Термін дії:** 30 днів\n"
         f"💰 **Сума до сплати:** {prices[priv_type]}\n\n"
@@ -60,7 +72,6 @@ def process_buy_button(call):
         f"2. Ваш Нік 🎮\n"
         f"3. Ваш SteamID 🆔 (наприклад, `STEAM_0:0:12345678`)"
     )
-
     bot.send_message(call.message.chat.id, response_text, parse_mode="Markdown")
     bot.answer_callback_query(call.id)
 
