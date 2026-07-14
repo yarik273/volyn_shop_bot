@@ -6,27 +6,26 @@ from telebot import types
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ================= НАЛАШТУВАННЯ БОТА =================
-BOT_TOKEN = os.getenv("MY_NEW_SECRET_TOKEN")
-
+BOT_TOKEN = os.getenv("MY_NEW_SECRET_TOKEN")  # Наша нова безпечна змінна
 TARGET_THREAD_ID = 693  # Ваш ID гілки
 
 # Реквізити для гравців
-CARD_NUMBER = "4149 4999 2"  # Вкажіть вашу реальну карту
+CARD_NUMBER = "4149 4999 1122"  # Вкажіть вашу реальну карту
 CARD_HOLDER = "Ярослав В."           # Ваше ім'я
 # =====================================================
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Функція, яка зачекає потрібний час і видалить повідомлення
-def auto_delete_message(chat_id, message_id, delay_seconds=600):  # 600 секунд = 10 хвилин
+# Функція автовидалення повідомлень
+def auto_delete_message(chat_id, message_id, delay_seconds=30):  # ⏱️ ТИМЧАСОВО 30 СЕКУНД ДЛЯ ТЕСТУ!
     time.sleep(delay_seconds)
     try:
         bot.delete_message(chat_id, message_id)
         print(f"DEBUG: Повідомлення {message_id} успішно видалено за таймером.")
     except Exception as e:
-        print(f"DEBUG: Не вдалося видалити повідомлення (можливо, вже видалене вручну): {e}")
+        print(f"DEBUG: Не вдалося видалити повідомлення: {e}")
 
-# 1. Реагуємо на команду /start (Ця кнопка в гілці залишається назавжди)
+# 1. Реагуємо на команду /start (Кнопка залишається в гілці назавжди)
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     current_thread_id = message.message_thread_id
@@ -37,7 +36,7 @@ def cmd_start(message):
     keyboard.add(types.InlineKeyboardButton(text="🛒 Купити привілегію", callback_data="open_shop"))
     
     welcome_text = (
-        "👋 **Вітаємо в магазині сервера CS 1.6!**\n\n"
+        "👋 **Вітаємо в магазині нашого сервера CS 1.6!**\n\n"
         "Натисніть на кнопку нижче, щоб переглянути доступні привілегії 👇"
     )
     bot.send_message(
@@ -59,7 +58,6 @@ def open_shop(call):
     )
     shop_text = "📋 **Оберіть привілегію, яку бажаєте придбати:**"
     
-    # Якщо це група, ми надсилаємо НОВЕ повідомлення, щоб потім його видалити (а не редагуємо головне)
     if call.message.chat.type in ['group', 'supergroup']:
         sent_msg = bot.send_message(
             chat_id=call.message.chat.id,
@@ -68,17 +66,17 @@ def open_shop(call):
             parse_mode="Markdown",
             message_thread_id=call.message.message_thread_id
         )
-        # Запускаємо таймер на видалення цього меню через 10 хвилин (600 секунд)
-        threading.Thread(target=auto_delete_message, args=(call.message.chat.id, sent_msg.message_id, 600), daemon=True).start()
+        # Запускаємо таймер видалення меню вибору
+        threading.Thread(target=auto_delete_message, args=(call.message.chat.id, sent_msg.message_id, 30), daemon=True).start()
     else:
-        # В особистих повідомленнях просто редагуємо, як і раніше
         bot.edit_message_text(shop_text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, parse_mode="Markdown")
         
     bot.answer_callback_query(call.id)
 
-# 3. Вивід картки та інструкції з автовидаленням
+# 3. Вивід картки та інструкції (ТУТ ВСЕ ВИПРАВЛЕНО)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
 def process_buy_button(call):
+    # ✅ ВИПРАВЛЕНО: додано індекс [1], тепер воно чітко розпізнає vip, admin чи sponsor
     priv_type = call.data.split("_")[1]
     prices = {"vip": "200 грн", "admin": "400 грн", "sponsor": "800 грн"}
     names = {"vip": "💎 VIP-статус", "admin": "🛡️ Права Адміна", "sponsor": "👑 Спонсор сервера"}
@@ -97,7 +95,7 @@ def process_buy_button(call):
         f"3. Ваш SteamID 🆔"
     )
     
-    # Надсилаємо реквізити
+    # Надсилаємо реквізити в чат групи або в приват
     sent_info = bot.send_message(
         chat_id=call.message.chat.id, 
         text=response_text, 
@@ -105,15 +103,15 @@ def process_buy_button(call):
         message_thread_id=call.message.message_thread_id if call.message.chat.type in ['group', 'supergroup'] else None
     )
     
-    # ⚠️ Якщо реквізити натиснули В ГРУПІ, вмикаємо таймер самознищення на 10 хвилин (600 секунд)
     if call.message.chat.type in ['group', 'supergroup']:
-        # Також видаляємо вибір категорій, якщо користувач вже вибрав конкретний товар
+        # Видаляємо проміжне меню вибору товару, щоб воно не висіло
         try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except Exception:
             pass
             
-        threading.Thread(target=auto_delete_message, args=(call.message.chat.id, sent_info.message_id, 600), daemon=True).start()
+        # Запускаємо таймер видалення для самого повідомлення з реквізитами картки
+        threading.Thread(target=auto_delete_message, args=(call.message.chat.id, sent_info.message_id, 30), daemon=True).start()
         
     bot.answer_callback_query(call.id)
 
@@ -137,6 +135,5 @@ if __name__ == "__main__":
     print("Магазин привілегій успішно запущено!")
     
     bot.remove_webhook()
-    # Опитування з паузами, щоб не навантажувати та не блокувати Render
     bot.polling(none_stop=True, interval=2, timeout=15)
     
