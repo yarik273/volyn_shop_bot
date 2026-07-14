@@ -98,15 +98,9 @@ def run_health_server():
 if __name__ == "__main__":
     threading.Thread(target=run_health_server, daemon=True).start()
     print("Магазин привілегій успішно запущено!")
-    
-    # Решение против ошибки 409 на Render:
-    try:
-        print("Вибиваємо старі завислі процеси...")
-        bot.log_out()  # Принудительно закрывает старые сессии в Telegram
-    except Exception as e:
-        print(f"Запис log_out пропущено або вже очищено: {e}")
-        
+
     bot.remove_webhook() 
     bot.infinity_polling(skip_pending=True)
+    
     
     
