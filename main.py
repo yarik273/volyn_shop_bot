@@ -1,20 +1,19 @@
-import asyncio
 import os
 import socket
-from aiogram import Bot, Dispatcher, types
-from aiogram.utils import executor
+import telebot
+from telebot import types
 from ftplib import FTP
 
-# ================= НАЛАШТУВАННЯ БОТА =================
+# ================= НАСТРОЙКА БОТА =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_TG_ID = 5596041220  # Ваш особистий Telegram ID
+ADMIN_TG_ID = 5596041220  # Ваш личный Telegram ID
 
-# Реквізити для гравців
-CARD_NUMBER = "4149 4999 1111 2222"  # Вкажіть вашу карту
+# Реквизиты для игроков
+CARD_NUMBER = "4149 4999 1111 2222"  # Укажите вашу карту
 CARD_HOLDER = "Ярослав В."
 # =====================================================
 
-# ================= НАЛАШТУВАННЯ СЕРВЕРА CS 1.6 =======
+# ================= НАСТРОЙКА СЕРВЕРА CS 1.6 =======
 FTP_HOST = "IP_АДРЕСА_ХОСТИНГУ"      
 FTP_USER = "ЛОГІН_FTP"
 FTP_PASS = "ПАРОЛЬ_FTP"
@@ -24,7 +23,7 @@ RCON_HOST = "IP_СЕРВЕРА_ГРИ"
 RCON_PORT = 27015                    
 RCON_PASS = "RCON_ПАРОЛЬ_СЕРВЕРА"
 
-# Прапори доступу (флаги) для кожної привілегії
+# Флаги доступа для каждой привилегии
 FLAGS_CONFIG = {
     "vip": "t",                        
     "admin": "abcdef",                 
@@ -32,10 +31,9 @@ FLAGS_CONFIG = {
 }
 # =====================================================
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
+bot = telebot.TeleBot(BOT_TOKEN)
 
-# Легка функція відправки RCON-команди для CS 1.6
+# Легкая функция отправки RCON-команды для CS 1.6
 def send_cs_rcon(host, port, rcon_password, command):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -48,9 +46,9 @@ def send_cs_rcon(host, port, rcon_password, command):
     except Exception as e:
         return f"Помилка RCON: {str(e)}"
 
-# 1. Реагуємо на команду /start (Показуємо ОДНУ кнопку)
-@dp.message_handler(commands=["start"])
-async def cmd_start(message: types.Message):
+# 1. Реагируем на команду /start (Показываем одну кнопку)
+@bot.message_handler(commands=['start'])
+def cmd_start(message):
     keyboard = types.InlineKeyboardMarkup()
     keyboard.add(types.InlineKeyboardButton(text="🛒 Купити привілегію", callback_data="open_shop"))
     
@@ -58,25 +56,25 @@ async def cmd_start(message: types.Message):
         "👋 **Вітаємо в магазині нашого сервера CS 1.6!**\n\n"
         "Натисніть на кнопку нижче, щоб переглянути доступні привілегії 👇"
     )
-    await message.answer(welcome_text, reply_markup=keyboard, parse_mode="Markdown")
+    bot.send_message(message.chat.id, welcome_text, reply_markup=keyboard, parse_mode="Markdown")
 
-# 2. Відкриваємо список привілегій
-@dp.callback_query_handler(text="open_shop")
-async def open_shop(callback: types.CallbackQuery):
+# 2. Обработка кнопки "Купити привілегію" -> список товаров
+@bot.callback_query_handler(func=lambda call: call.data == "open_shop")
+def open_shop(call):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(
         types.InlineKeyboardButton(text="💎 VIP (200 грн / 30 днів)", callback_data="buy_vip"),
-        types.InlineKeyboardButton(text="🛡️ Адмін (400 грн / 30 днів)", callback_data="buy_admin"),
+        types.InlineKeyboardButton(text="🛡️ Admin (400 грн / 30 днів)", callback_data="buy_admin"),
         types.InlineKeyboardButton(text="👑 Спонсор (800 грн / 30 днів)", callback_data="buy_sponsor")
     )
     shop_text = "📋 **Оберіть привілегію, яку бажаєте придбати:**"
-    await callback.message.edit_text(shop_text, reply_markup=keyboard, parse_mode="Markdown")
-    await callback.answer()
+    bot.edit_message_text(shop_text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, parse_mode="Markdown")
+    bot.answer_callback_query(call.id)
 
-# 3. Вивід реквізитів
-@dp.callback_query_handler(lambda c: c.data.startswith("buy_"))
-async def process_buy_button(callback: types.CallbackQuery):
-    priv_type = callback.data.split("_")[1]
+# 3. Вывод реквизитов после выбора услуги
+@bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
+def process_buy_button(call):
+    priv_type = call.data.split("_")[1]
     prices = {"vip": "200 грн", "admin": "400 грн", "sponsor": "800 грн"}
     names = {"vip": "💎 VIP-статус", "admin": "🛡️ Права Адміна", "sponsor": "👑 Спонсор сервера"}
     
@@ -93,19 +91,19 @@ async def process_buy_button(callback: types.CallbackQuery):
         f"2. Ваш Нік у грі 🎮\n"
         f"3. Ваш SteamID 🆔 (наприклад, `STEAM_0:0:12345678`)"
     )
-    await callback.message.answer(response_text, parse_mode="Markdown")
-    await callback.answer()
+    bot.send_message(call.message.chat.id, response_text, parse_mode="Markdown")
+    bot.answer_callback_query(call.id)
 
-# 4. ТАЄМНА КОМАНДА ДЛЯ ВАС (Видачі привілегії в users.ini)
-@dp.message_handler(commands=["give"])
-async def grant_privilege_command(message: types.Message):
+# 4. СЕКРЕТНАЯ КОМАНДА ДЛЯ ВАС (Выдача админки в users.ini)
+@bot.message_handler(commands=['give'])
+def grant_privilege_command(message):
     if message.from_user.id != ADMIN_TG_ID:
         return
         
     try:
         args = message.text.split(maxsplit=3)
         if len(args) < 3:
-            await message.answer("❌ Формат команди: `/give [vip/admin/sponsor] [SteamID] [Нік]`", parse_mode="Markdown")
+            bot.send_message(message.chat.id, "❌ Формат команди: `/give [vip/admin/sponsor] [SteamID] [Нік]`", parse_mode="Markdown")
             return
             
         priv_type = args[1].lower()
@@ -113,13 +111,13 @@ async def grant_privilege_command(message: types.Message):
         nickname = args[3] if len(args) > 3 else "Гравець"
         
         if priv_type not in FLAGS_CONFIG:
-            await message.answer("❌ Невірний тип! Доступно: vip, admin, sponsor")
+            bot.send_message(message.chat.id, "❌ Невірний тип! Доступно: vip, admin, sponsor")
             return
             
         flags = FLAGS_CONFIG[priv_type]
         new_entry = f'\n; Додано ботом для {nickname}\n"{steam_id}" "" "{flags}" "ce"'
         
-        # Запис у файл по FTP
+        # Запись по FTP
         with FTP(FTP_HOST) as ftp:
             ftp.login(user=FTP_USER, passwd=FTP_PASS)
             lines = []
@@ -134,14 +132,15 @@ async def grant_privilege_command(message: types.Message):
             with open("temp_users.ini", "rb") as temp_file:
                 ftp.storbinary(f'STOR {FTP_FILE_PATH}', temp_file)
                 
-        # Оновлення адмінів через RCON
+        # Обновление админов через RCON
         send_cs_rcon(RCON_HOST, RCON_PORT, RCON_PASS, "amx_reloadadmins")
             
-        await message.answer(f"✅ Успішно! Гравцю *{nickname}* ({steam_id}) видано привілегію **{priv_type}**.\nСервер оновлено через RCON.", parse_mode="Markdown")
+        bot.send_message(message.chat.id, f"✅ Успішно! Гравцю *{nickname}* ({steam_id}) видано привілегію **{priv_type}**.\nСервер оновлено через RCON.", parse_mode="Markdown")
         
     except Exception as e:
-        await message.answer(f"❌ Помилка: {str(e)}")
+        bot.send_message(message.chat.id, f"❌ Помилка: {str(e)}")
 
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+    print("Бот запускається...")
+    bot.infinity_polling()
     
