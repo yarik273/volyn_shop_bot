@@ -1,52 +1,21 @@
 import os
-import socket
 import telebot
+import threading
 from telebot import types
-from ftplib import FTP
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# ================= НАСТРОЙКА БОТА =================
+# ================= НАЛАШТУВАННЯ БОТА =================
+# Бот автоматично візьме токен із налаштувань Render (змінна BOT_TOKEN)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_TG_ID = 5596041220  # Ваш личный Telegram ID
 
-# Реквизиты для игроков
-CARD_NUMBER = "4149 4999 1111 2222"  # Укажите вашу карту
-CARD_HOLDER = "Ярослав В."
-# =====================================================
-
-# ================= НАСТРОЙКА СЕРВЕРА CS 1.6 =======
-FTP_HOST = "IP_АДРЕСА_ХОСТИНГУ"      
-FTP_USER = "ЛОГІН_FTP"
-FTP_PASS = "ПАРОЛЬ_FTP"
-FTP_FILE_PATH = "/cstrike/addons/amxmodx/config/users.ini" 
-
-RCON_HOST = "IP_СЕРВЕРА_ГРИ"         
-RCON_PORT = 27015                    
-RCON_PASS = "RCON_ПАРОЛЬ_СЕРВЕРА"
-
-# Флаги доступа для каждой привилегии
-FLAGS_CONFIG = {
-    "vip": "t",                        
-    "admin": "abcdef",                 
-    "sponsor": "abcdefghijklmnopqrst"  
-}
+# Сюди впишіть ваші реальні реквізити картки
+CARD_NUMBER = "4149 4999 1111 2222"  # Номер вашої картки
+CARD_HOLDER = "Ярослав В."           # Ваше ім'я для перевірки
 # =====================================================
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Легкая функция отправки RCON-команды для CS 1.6
-def send_cs_rcon(host, port, rcon_password, command):
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(3.0)
-        req = b'\xFF\xFF\xFF\xFFrcon ' + rcon_password.encode('utf-8') + b' ' + command.encode('utf-8') + b'\n'
-        s.sendto(req, (host, int(port)))
-        data, _ = s.recvfrom(4096)
-        s.close()
-        return data.decode('utf-8', errors='ignore')
-    except Exception as e:
-        return f"Помилка RCON: {str(e)}"
-
-# 1. Реагируем на команду /start (Показываем одну кнопку)
+# 1. Реагуємо на команду /start (Показуємо ЛИШЕ ОДНУ кнопку)
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     keyboard = types.InlineKeyboardMarkup()
@@ -58,7 +27,7 @@ def cmd_start(message):
     )
     bot.send_message(message.chat.id, welcome_text, reply_markup=keyboard, parse_mode="Markdown")
 
-# 2. Обработка кнопки "Купити привілегію" -> список товаров
+# 2. Обробка кнопки "Купити привілегію" -> відкриваємо список товарів
 @bot.callback_query_handler(func=lambda call: call.data == "open_shop")
 def open_shop(call):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
@@ -71,10 +40,10 @@ def open_shop(call):
     bot.edit_message_text(shop_text, call.message.chat.id, call.message.message_id, reply_markup=keyboard, parse_mode="Markdown")
     bot.answer_callback_query(call.id)
 
-# 3. Вывод реквизитов после выбора услуги
+# 3. Вивід картки та інструкції після вибору послуги
 @bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
 def process_buy_button(call):
-    priv_type = call.data.split("_")[1]
+    priv_type = call.data.split("_")
     prices = {"vip": "200 грн", "admin": "400 грн", "sponsor": "800 грн"}
     names = {"vip": "💎 VIP-статус", "admin": "🛡️ Права Адміна", "sponsor": "👑 Спонсор сервера"}
     
@@ -86,7 +55,7 @@ def process_buy_button(call):
         f"`{CARD_NUMBER}`\n"
         f"👤 **Отримувач:** {CARD_HOLDER}\n\n"
         f"⚠️ **Важлива інструкція:**\n"
-        f"Оплатіть точну суму на картку. Після цього надішліть сюди (в особисті повідомлення боту) інформацію у такому форматі:\n\n"
+        f"Оплатіть точну суму на картку. Після цього надішліть сюди інформацію у такому форматі:\n\n"
         f"1. Скріншот чека про оплату 📸\n"
         f"2. Ваш Нік у грі 🎮\n"
         f"3. Ваш SteamID 🆔 (наприклад, `STEAM_0:0:12345678`)"
@@ -94,53 +63,23 @@ def process_buy_button(call):
     bot.send_message(call.message.chat.id, response_text, parse_mode="Markdown")
     bot.answer_callback_query(call.id)
 
-# 4. СЕКРЕТНАЯ КОМАНДА ДЛЯ ВАС (Выдача админки в users.ini)
-@bot.message_handler(commands=['give'])
-def grant_privilege_command(message):
-    if message.from_user.id != ADMIN_TG_ID:
+# === ВЕБ-СЕРВЕР ДЛЯ СТАБІЛЬНОЇ РОБОТИ НА RENDER ===
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+    def log_message(self, format, *args):
         return
-        
-    try:
-        args = message.text.split(maxsplit=3)
-        if len(args) < 3:
-            bot.send_message(message.chat.id, "❌ Формат команди: `/give [vip/admin/sponsor] [SteamID] [Нік]`", parse_mode="Markdown")
-            return
-            
-        priv_type = args[1].lower()
-        steam_id = args[2]
-        nickname = args[3] if len(args) > 3 else "Гравець"
-        
-        if priv_type not in FLAGS_CONFIG:
-            bot.send_message(message.chat.id, "❌ Невірний тип! Доступно: vip, admin, sponsor")
-            return
-            
-        flags = FLAGS_CONFIG[priv_type]
-        new_entry = f'\n; Додано ботом для {nickname}\n"{steam_id}" "" "{flags}" "ce"'
-        
-        # Запись по FTP
-        with FTP(FTP_HOST) as ftp:
-            ftp.login(user=FTP_USER, passwd=FTP_PASS)
-            lines = []
-            ftp.retrlines(f'RETR {FTP_FILE_PATH}', lines.append)
-            file_content = "\n".join(lines)
-            
-            updated_content = file_content + new_entry
-            
-            with open("temp_users.ini", "w", encoding="utf-8") as temp_file:
-                temp_file.write(updated_content)
-                
-            with open("temp_users.ini", "rb") as temp_file:
-                ftp.storbinary(f'STOR {FTP_FILE_PATH}', temp_file)
-                
-        # Обновление админов через RCON
-        send_cs_rcon(RCON_HOST, RCON_PORT, RCON_PASS, "amx_reloadadmins")
-            
-        bot.send_message(message.chat.id, f"✅ Успішно! Гравцю *{nickname}* ({steam_id}) видано привілегію **{priv_type}**.\nСервер оновлено через RCON.", parse_mode="Markdown")
-        
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Помилка: {str(e)}")
+
+def run_health_server():
+    port = int(os.getenv("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
 
 if __name__ == "__main__":
-    print("Бот запускається...")
+    threading.Thread(target=run_health_server, daemon=True).start()
+    print("Магазин привілегій успішно запущено!")
     bot.infinity_polling()
     
