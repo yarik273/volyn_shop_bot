@@ -6,7 +6,8 @@ from telebot import types
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ================= НАЛАШТУВАННЯ БОТА =================
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("MY_NEW_SECRET_TOKEN")
+
 TARGET_THREAD_ID = 693  # Ваш ID гілки
 
 # Реквізити для гравців
