@@ -93,5 +93,6 @@ def run_health_server():
 if __name__ == "__main__":
     threading.Thread(target=run_health_server, daemon=True).start()
     print("Магазин привілегій успішно запущено!")
-    bot.infinity_polling()
+    bot.infinity_polling(skip_pending=True)
+    
     
