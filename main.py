@@ -47,7 +47,7 @@ def process_buy_button(call):
     prices = {"vip": "200 грн", "admin": "400 грн", "sponsor": "800 грн"}
     names = {"vip": "💎 VIP-статус", "admin": "🛡️ Права Адміна", "sponsor": "👑 Спонсор сервера"}
     
-    response_text = (
+        response_text = (
         f"📋 **Ви обрали:** {names[priv_type]}\n"
         f"⏳ **Термін дії:** 30 днів\n"
         f"💰 **Сума до сплати:** {prices[priv_type]}\n\n"
@@ -57,9 +57,10 @@ def process_buy_button(call):
         f"⚠️ **Важлива інструкція:**\n"
         f"Оплатіть точну суму на картку. Після цього надішліть сюди інформацію у такому форматі:\n\n"
         f"1. Скріншот чека про оплату 📸\n"
-        f"2. Ваш Нік у грі 🎮\n"
+        f"2. Ваш Нік 🎮\n"
         f"3. Ваш SteamID 🆔 (наприклад, `STEAM_0:0:12345678`)"
     )
+
     bot.send_message(call.message.chat.id, response_text, parse_mode="Markdown")
     bot.answer_callback_query(call.id)
 
