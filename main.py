@@ -62,7 +62,7 @@ def open_shop(call):
         types.InlineKeyboardButton(text="💎 VIP-статус", callback_data="select_vip"),
         types.InlineKeyboardButton(text="🛡️ Права Адміна", callback_data="select_admin"),
         types.InlineKeyboardButton(text="👑 Спонсор сервера", callback_data="select_sponsor"),
-        types.InlineKeyboardButton(text="👕 Модель гравця (100 грн)", callback_data="buy_model_30"),
+        types.InlineKeyboardButton(text="👕 Модель гравця (150 грн)", callback_data="buy_model_30"),
         types.InlineKeyboardButton(text="💰 5000 бонусів (100 грн)", callback_data="buy_bonuses_0")
     )
     shop_text = "📋 **Оберіть категорію, яка вас цікавить:**"
