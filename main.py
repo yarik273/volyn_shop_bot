@@ -26,8 +26,8 @@ PRICES = {
 }
 
 NAMES = {
-    "vip premium": "💎 VIP-Premium",
-    "vip sonik": "💎 VIP-Sonik",
+    "vip premium": "💎 VIP Premium",
+    "vip sonik": "💎 VIP Sonik",
     "admin": "🛡️ Права Адміна",
     "sponsor": "👑 Спонсор сервера",
     "model": "👕 Унікальна модель гравця (30 днів)",
@@ -61,8 +61,8 @@ def cmd_start(message):
 def open_shop(call):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(
-        types.InlineKeyboardButton(text="💎 VIP-Premium", callback_data="select_vip"),
-        types.InlineKeyboardButton(text="💎 VIP-Sonik", callback_data="select_vip"),
+        types.InlineKeyboardButton(text="💎 VIP Premium", callback_data="select_vip"),
+        types.InlineKeyboardButton(text="💎 VIP Sonik", callback_data="select_vip"),
         types.InlineKeyboardButton(text="🛡️ Права Адміна", callback_data="select_admin"),
         types.InlineKeyboardButton(text="👑 Спонсор сервера", callback_data="select_sponsor"),
         types.InlineKeyboardButton(text="👕 Модель гравця (150 грн)", callback_data="buy_model_30"),
