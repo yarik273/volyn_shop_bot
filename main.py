@@ -26,8 +26,8 @@ PRICES = {
 }
 
 NAMES = {
-    "vip premium": "💎 VIP Premium",
-    "vip sonik": "💎 VIP Sonik",
+    "vip": "💎 VIP Premium",
+    "vip": "💎 VIP Sonik",
     "admin": "🛡️ Права Адміна",
     "sponsor": "👑 Спонсор сервера",
     "model": "👕 Унікальна модель гравця (30 днів)",
@@ -97,7 +97,7 @@ def process_buy(call):
     _, priv_type, days = call.data.split("_")
     
     # Визначаємо ціну та опис залежно від типу товару
-    if priv_type in ["vip Premium", "vip sonik", "admin", "sponsor"]:
+    if priv_type in ["vip", "vip", "admin", "sponsor"]:
         price = PRICES[priv_type][days]
         item_name = f"{NAMES[priv_type]} на {days} днів"
     else:
