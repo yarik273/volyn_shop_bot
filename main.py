@@ -27,7 +27,7 @@ PRICES = {
 
 NAMES = {
     "vip premium": "💎 VIP-Premium",
-    "vip sonik": :"💎 VIP-Sonik",
+    "vip sonik": "💎 VIP-Sonik",
     "admin": "🛡️ Права Адміна",
     "sponsor": "👑 Спонсор сервера",
     "model": "👕 Унікальна модель гравця (30 днів)",
