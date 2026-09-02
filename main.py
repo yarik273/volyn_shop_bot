@@ -18,7 +18,6 @@ bot = telebot.TeleBot(BOT_TOKEN)
 # База даних цін та назв для зручного розрахунку
 PRICES = {
     "vip": {"30": "200 грн", "60": "380 грн", "90": "550 грн"},  # Виправлено можливу опечатку 350->530, або замініть на свою
-    "vip2": {"30": "350грн", "60": "650 грн", "90": "900 грн"},
     "admin": {"30": "500 грн", "60": "950 грн", "90": "1350 грн"},
     "sponsor": {"30": "800 грн", "60": "1550 грн", "90": "2200 грн"},
     "model": "150 грн",
@@ -27,7 +26,6 @@ PRICES = {
 
 NAMES = {
     "vip": "💎 VIP Premium",
-    "vip2": "💎 VIP Sonik",
     "admin": "🛡️ Права Адміна",
     "sponsor": "👑 Спонсор сервера",
     "model": "👕 Унікальна модель гравця (30 днів)",
@@ -62,7 +60,6 @@ def open_shop(call):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(
         types.InlineKeyboardButton(text="💎 VIP Premium", callback_data="select_vip"),
-        types.InlineKeyboardButton(text="💎 VIP Sonik", callback_data="select_vip"),
         types.InlineKeyboardButton(text="🛡️ Права Адміна", callback_data="select_admin"),
         types.InlineKeyboardButton(text="👑 Спонсор сервера", callback_data="select_sponsor"),
         types.InlineKeyboardButton(text="👕 Модель гравця (150 грн)", callback_data="buy_model_30"),
@@ -97,7 +94,7 @@ def process_buy(call):
     _, priv_type, days = call.data.split("_")
     
     # Визначаємо ціну та опис залежно від типу товару
-    if priv_type in ["vip", "vip2", "admin", "sponsor"]:
+    if priv_type in ["vip", "admin", "sponsor"]:
         price = PRICES[priv_type][days]
         item_name = f"{NAMES[priv_type]} на {days} днів"
     else:
